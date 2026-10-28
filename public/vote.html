@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cast your rank</title>
+    <link rel="stylesheet" href="/style.css" />
+    <style>
+      .name-field {
+        display: grid;
+        gap: 0.375rem;
+        margin-bottom: 1.75rem;
+      }
+
+      .name-field label {
+        font-weight: 600;
+      }
+
+      .name-field input {
+        width: 100%;
+        padding: 0.75rem 0.875rem;
+        border: 2px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .name-field input:focus-visible {
+        border-color: var(--ink);
+        outline: none;
+      }
+
+      .tier-pick {
+        display: flex;
+        align-items: stretch;
+        width: 100%;
+        padding: 0;
+        border: 3px solid transparent;
+        border-radius: calc(var(--radius) + 3px);
+        background: var(--surface);
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .tier-pick:disabled {
+        cursor: progress;
+        opacity: 0.6;
+      }
+
+      .tier-pick:hover:not(:disabled) {
+        border-color: var(--line);
+      }
+
+      .tier-pick[aria-pressed="true"] {
+        border-color: var(--ink);
+      }
+
+      .tier-note {
+        display: flex;
+        align-items: center;
+        padding-inline: 1.25rem;
+        color: var(--ink-soft);
+      }
+
+      .tier-pick[aria-pressed="true"] .tier-note {
+        color: var(--ink);
+        font-weight: 700;
+      }
+
+      .connection {
+        margin: 0 0 1rem;
+        color: var(--danger);
+        font-size: 0.9375rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Cast your rank</h1>
+      <p class="lede">Pick one rank. You can change it until the round is cleared.</p>
+
+      <div class="name-field">
+        <label for="name">Your name</label>
+        <input id="name" name="name" type="text" maxlength="40" autocomplete="name" required />
+      </div>
+
+      <p class="connection" id="connection" hidden>Connection lost. Reconnecting…</p>
+      <ul class="tiers" id="tiers" aria-label="Ranks"></ul>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <script type="module">
+      const STORAGE_KEY = "tier-vote";
+
+      const nameInput = document.querySelector("#name");
+      const tierList = document.querySelector("#tiers");
+      const statusLine = document.querySelector("#status");
+      const connectionLine = document.querySelector("#connection");
+
+      const voter = loadVoter();
+      let currentRoundId = null;
+      let renderedRanks = "";
+      let inFlight = false;
+
+      nameInput.value = voter.name;
+
+      function loadVoter() {
+        let stored = {};
+        try {
+          stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") ?? {};
+        } catch (error) {
+          console.warn("Ignoring unreadable saved vote", error);
+        }
+        return {
+          id: typeof stored.id === "string" && /^[0-9a-f]{32}$/.test(stored.id) ? stored.id : newVoterId(),
+          name: typeof stored.name === "string" ? stored.name : "",
+          roundId: typeof stored.roundId === "string" ? stored.roundId : null,
+          rank: typeof stored.rank === "string" ? stored.rank : null,
+        };
+      }
+
+      function saveVoter() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(voter));
+        } catch (error) {
+          console.warn("Could not save vote locally", error);
+        }
+      }
+
+      // crypto.randomUUID() needs a secure context; getRandomValues also works over plain HTTP.
+      function newVoterId() {
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+      }
+
+      function setStatus(message, tone = "info") {
+        statusLine.textContent = message;
+        statusLine.dataset.tone = tone;
+      }
+
+      function renderTiers(ranks) {
+        const key = ranks.join();
+        if (key === renderedRanks) return;
+        renderedRanks = key;
+        tierList.replaceChildren(
+          ...ranks.map((rank) => {
+            const item = document.createElement("li");
+            item.dataset.rank = rank;
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "tier-pick";
+            button.addEventListener("click", () => castVote(rank));
+            const letter = document.createElement("span");
+            letter.className = "tier-letter";
+            letter.textContent = rank;
+            const note = document.createElement("span");
+            note.className = "tier-note";
+            button.append(letter, note);
+            item.append(button);
+            return item;
+          }),
+        );
+      }
+
+      function renderSelection() {
+        const selected = voter.roundId === currentRoundId ? voter.rank : null;
+        for (const item of tierList.children) {
+          const button = item.querySelector("button");
+          const isSelected = item.dataset.rank === selected;
+          button.setAttribute("aria-pressed", String(isSelected));
+          button.disabled = inFlight || currentRoundId === null;
+          button.querySelector(".tier-note").textContent = isSelected ? "Your vote" : "";
+        }
+      }
+
+      function applyRound(roundId) {
+        if (voter.roundId !== roundId) {
+          const hadVoted = voter.rank !== null;
+          voter.roundId = roundId;
+          voter.rank = null;
+          saveVoter();
+          if (hadVoted) setStatus("Voting was cleared. Pick a rank again.");
+        }
+        currentRoundId = roundId;
+      }
+
+      async function castVote(rank) {
+        const name = nameInput.value.trim();
+        if (name === "") {
+          setStatus("Enter your name before voting.", "error");
+          nameInput.focus();
+          return;
+        }
+        if (currentRoundId === null || inFlight) return;
+
+        inFlight = true;
+        renderSelection();
+        try {
+          const response = await fetch("/api/vote", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ roundId: currentRoundId, voterId: voter.id, name, rank }),
+          });
+          if (response.ok) {
+            Object.assign(voter, { name, rank, roundId: currentRoundId });
+            saveVoter();
+            setStatus(`You voted ${rank}. Tap another rank to change your vote.`);
+            return;
+          }
+          const body = await response.json().catch(() => ({}));
+          if (response.status === 409 && typeof body.roundId === "string") {
+            applyRound(body.roundId);
+            setStatus("Voting was cleared. Pick a rank again.");
+            return;
+          }
+          setStatus(body.error ?? `The vote wasn't saved (error ${response.status}). Try again.`, "error");
+        } catch (error) {
+          console.error(error);
+          setStatus("The vote wasn't saved because the server couldn't be reached. Try again.", "error");
+        } finally {
+          inFlight = false;
+          renderSelection();
+        }
+      }
+
+      nameInput.addEventListener("change", () => {
+        voter.name = nameInput.value.trim();
+        saveVoter();
+        const hasVoteThisRound = voter.rank !== null && voter.roundId === currentRoundId;
+        if (hasVoteThisRound && voter.name !== "") castVote(voter.rank);
+      });
+
+      const events = new EventSource("/api/events");
+      events.addEventListener("open", () => {
+        connectionLine.hidden = true;
+      });
+      events.addEventListener("error", () => {
+        connectionLine.hidden = false;
+      });
+      events.addEventListener("message", (event) => {
+        const state = JSON.parse(event.data);
+        renderTiers(state.ranks);
+        applyRound(state.roundId);
+        renderSelection();
+      });
+    </script>
+  </body>
+</html>

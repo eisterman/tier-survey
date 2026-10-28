@@ -1,0 +1,125 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap");
+
+:root {
+  color-scheme: light;
+  --page: #e6e9ee;
+  --surface: #f6f7f9;
+  --ink: #1c2433;
+  --ink-soft: #5a6375;
+  --line: #c9ced8;
+  --danger: #b4232a;
+  --tier-s: #ff7f7f;
+  --tier-a: #ffbf7f;
+  --tier-b: #ffdf7f;
+  --tier-c: #e8f57a;
+  --tier-d: #a8ee8a;
+  --radius: 6px;
+  --font: "Bricolage Grotesque", system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #161b24;
+    --surface: #212836;
+    --ink: #eef1f6;
+    --ink-soft: #a2abbd;
+    --line: #3a4356;
+    --danger: #ff8a8f;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 1.0625rem;
+  line-height: 1.45;
+}
+
+main {
+  width: min(100% - 32px, 46rem);
+  margin-inline: auto;
+  padding-block: 2.5rem 4rem;
+}
+
+h1 {
+  margin: 0 0 0.25rem;
+  font-size: clamp(2rem, 6vw, 2.75rem);
+  font-weight: 800;
+  font-variation-settings: "opsz" 96;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.lede {
+  margin: 0 0 2rem;
+  color: var(--ink-soft);
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.tiers {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tier-letter {
+  display: grid;
+  place-items: center;
+  min-width: 5.5rem;
+  min-height: 5.5rem;
+  border-radius: var(--radius) 0 0 var(--radius);
+  color: #1c2433;
+  font-size: 2.75rem;
+  font-weight: 800;
+  font-variation-settings: "opsz" 96;
+  line-height: 1;
+}
+
+[data-rank="S"] .tier-letter { background: var(--tier-s); }
+[data-rank="A"] .tier-letter { background: var(--tier-a); }
+[data-rank="B"] .tier-letter { background: var(--tier-b); }
+[data-rank="C"] .tier-letter { background: var(--tier-c); }
+[data-rank="D"] .tier-letter { background: var(--tier-d); }
+
+.status {
+  margin: 1.25rem 0 0;
+  min-height: 1.5em;
+  color: var(--ink-soft);
+  font-size: 0.9375rem;
+}
+
+.status[data-tone="error"],
+.status[data-tone="connection"] {
+  color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

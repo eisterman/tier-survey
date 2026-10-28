@@ -1,0 +1,28 @@
+{
+  "name": "valepuzza",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Live S–D tier vote with a results page that can reset the round",
+  "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "start": "node src/main.ts",
+    "dev": "node --watch src/main.ts",
+    "test": "node --test",
+    "typecheck": "tsc"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.16.1",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.16.1",
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  }
+}

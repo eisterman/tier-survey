@@ -1,0 +1,13 @@
+services:
+  vote:
+    build: .
+    restart: unless-stopped
+    environment:
+      RESULTS_TOKEN: ${RESULTS_TOKEN:?Set RESULTS_TOKEN in .env (generate one with `openssl rand -hex 16`)}
+    ports:
+      - "127.0.0.1:3000:3000"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
