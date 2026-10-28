@@ -18,10 +18,13 @@ Requires Node 26 and pnpm 12.
 
 ```sh
 pnpm install
-RESULTS_TOKEN=$(openssl rand -hex 16) pnpm dev
+echo "RESULTS_TOKEN=$(openssl rand -hex 16)" > .env
+pnpm dev
 pnpm typecheck
 pnpm test
 ```
+
+`pnpm start` and `pnpm dev` load `.env` if it exists; variables already set in the shell take precedence.
 
 ## Deploy
 
